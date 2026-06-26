@@ -5,6 +5,7 @@
 pub mod configuration;
 pub mod routes;
 pub mod startup;
+pub mod telemetry;
 
 // async fn health_check() -> impl Responder {
 //     HttpResponse::Ok().finish()
