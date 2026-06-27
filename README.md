@@ -2,5 +2,9 @@
 curl -X POST http://localhost:8000/subscriptions \
      -d "name=Toh&email=sanprasirt@gmail.com"
 
-curl -i -X POST -d 'email=thomas_mann@hotmail.com&name=Tom' \
-http://127.0.0.1:8000/subscriptions
+curl -i -X POST -d 'email=Lhomas_mann@hotmail.com&name=Lom' \
+http://127.0.0.1:8000/subscriptions -v
+
+curl --request POST \
+--data 'name=le%20guin&email=ursula_le_guin%40gmail.com' \
+127.0.0.1:8000/subscriptions --verbose

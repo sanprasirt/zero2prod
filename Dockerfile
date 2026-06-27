@@ -1,5 +1,5 @@
 # Use the latest Rust stable release as base image
-FROM rust:1.95.0
+FROM rust:1.95.0 AS builder
 # Let's switch our working directory tp `app` (equivalent to `cd app`)
 # The `app` folder will be create for us by Docker
 WORKDIR /app
@@ -14,5 +14,18 @@ ENV SQLX_OFFLINE=true
 # Let's build binary!
 RUN cargo build --release
 
+# runtime stage
+# FROM rust:1.95.0-slim AS runtime
+FROM debian:bookworm-slim AS runtime
+WORKDIR /app
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/zero2prod zero2prod
+COPY configuration configuration
+ENV APP_ENVIRONMENT=production
 # When docker run is executed, launch the application
-ENTRYPOINT ["./target/release/zero2prod"]
+ENTRYPOINT ["./zero2prod"]
