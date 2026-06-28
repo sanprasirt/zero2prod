@@ -7,6 +7,9 @@ WORKDIR /app
 # Install the required system dependencies for our linking configuration
 RUN apt update && apt install lld clang -y
 
+# Install sqlx-cli so the builder stage can be reused as a migration runner
+# RUN cargo install sqlx-cli --no-default-features --features postgres
+
 # Copy all files from our working directory to Docker image
 COPY . .
 # Force SQLx to use the local metadata cache

@@ -3,7 +3,6 @@ use zero2prod::configuration::get_configuration;
 use zero2prod::startup::run;
 use sqlx::{postgres::PgPoolOptions};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-use secrecy::ExposeSecret;
 
 
 #[actix_web::main]
@@ -15,8 +14,9 @@ async fn main() -> std::io::Result<()> {
     let configuration = get_configuration().expect("Faild to read configuration!");
     let connection_pool = PgPoolOptions::new()
         .acquire_timeout(std::time::Duration::from_secs(2))
-        .connect_lazy(&configuration.database.connection_string().expose_secret())
-        .expect("Failed to connect to Postgres connection pool.");
+        // .connect_lazy(&configuration.database.connection_string().expose_secret())
+        .connect_lazy_with(configuration.database.with_db());
+        // .expect("Failed to connect to Postgres connection pool.");
     // Bubble up the io::Error if we failed to bind the address
     // Otherwise call .await in our Server
     let address = format!("{}:{}", configuration.application.host, configuration.application.port);

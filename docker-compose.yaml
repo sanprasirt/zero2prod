@@ -1,0 +1,74 @@
+services:
+  # ── 1. Database ────────────────────────────────────────────────────────────
+  # Starts first. The healthcheck keeps other services from connecting too early:
+  # `pg_isready` exits 0 only when Postgres is accepting connections, so Docker
+  # Compose waits here until the DB is genuinely ready before moving on.
+  pg_db:
+    image: postgres:18-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: newsletter
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d newsletter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. Migrator ────────────────────────────────────────────────────────────
+  # Runs once after pg_db is healthy, then exits.
+  # It reuses the `builder` stage of the Dockerfile (which has sqlx-cli
+  # installed) so we don't need a separate image.
+  # `sqlx migrate run` reads every *.sql file in the `migrations/` folder in
+  # timestamp order and applies any that haven't been recorded in the
+  # `_sqlx_migrations` tracking table yet — making it safe to run on every
+  # deploy (already-applied migrations are skipped).
+  # The app service waits for this to complete successfully before it starts,
+  # ensuring the schema is always up to date before traffic is accepted.
+  # migrator:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     target: builder        # stop at the builder stage; no need for the slim runtime
+  #   working_dir: /app
+  #   command: sqlx migrate run
+  #   environment:
+  #     DATABASE_URL: postgres://postgres:postgres@pg_db:5432/newsletter
+  #   depends_on:
+  #     pg_db:
+  #       condition: service_healthy
+
+  # ── 3. Application ─────────────────────────────────────────────────────────
+  # Starts only after migrations have completed successfully.
+  # Database connection settings are passed via APP__* env vars which override
+  # the values in configuration/base.yaml — most importantly APP__DATABASE__HOST
+  # which must be the service name `pg_db` (not `localhost`) so Docker's internal
+  # DNS resolves it correctly inside the compose network.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zero2prod
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENVIRONMENT: production
+      APP_DATABASE__HOST: pg_db
+      APP_DATABASE__USERNAME: postgres
+      APP_DATABASE__PASSWORD: postgres
+      APP_DATABASE__DATABASE_NAME: newsletter
+      APP_DATABASE__PORT: "5432"
+      APP_DATABASE__REQUIRE_SSL: false #require_ssl
+    depends_on:
+      pg_db:
+        condition: service_healthy
+      # migrator:
+      #   condition: service_completed_successfully  # wait for migrations to finish
+
+volumes:
+  pgdata:
